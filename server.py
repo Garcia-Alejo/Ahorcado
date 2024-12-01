@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 
 HOST = '127.0.0.1'
 PUERTO = 12345
@@ -10,96 +11,71 @@ jugadores = {}
 palabras_originales = {}
 palabras_adivinadas = {}
 historial = {}
+turno_actual = None  # Controla de quién es el turno (dirección del jugador)
 
 def manejar_jugador(conexion, direccion):
+    global turno_actual
     print(f"Jugador conectado: {direccion}")
     conexion.sendall("Bienvenido al juego de ahorcado.\n".encode())
     conexion.sendall("Esperando a otro jugador...\n".encode())
 
+    # Esperar hasta que se conecten los dos jugadores
     while len(jugadores) < 2:
-        pass
+        time.sleep(0.5)  # Evitar bucles excesivos
 
     conexion.sendall("Ambos jugadores conectados. Por favor, envía tu palabra.\n".encode())
+    
+    # Recibir palabra del jugador
+    palabra = conexion.recv(1024).decode().strip().lower()
+    palabras_originales[direccion] = palabra
+    palabras_adivinadas[direccion] = ["_"] * len(palabra)
 
     historial[direccion] = {"letras_correctas": [], "letras_incorrectas": [], "palabras": []}
 
-    palabra = conexion.recv(1024).decode().strip().lower()
-    palabras_originales[direccion] = palabra
-    palabras_adivinadas[direccion] = ["_"] * len(palabra)  # Usamos una lista para facilitar el formato con espacios
-
+    # Esperar a que ambos jugadores envíen sus palabras
     while len(palabras_originales) < 2:
-        pass
-
-    for jugador in jugadores:
-        if len(palabras_originales[jugador]) > 8:
-            oponente = [j for j in jugadores if j != jugador][0]
-            pista = f"La palabra tiene más de 8 letras. La primera letra es '{palabras_originales[jugador][0]}' y la última letra es '{palabras_originales[jugador][-1]}'."
-            jugadores[oponente].sendall(pista.encode())
+        time.sleep(0.5)
 
     conexion.sendall("¡Las palabras están listas! Comienza el juego.\n".encode())
 
+    # Identificar al oponente
     oponente = [j for j in jugadores if j != direccion][0]
-    errores = 0
-    intentos_palabra = 2
 
     while True:
-        # Mostrar la palabra con formato amigable (_ _ _ _ _)
-        conexion.sendall(f"Tu palabra para adivinar: {' '.join(palabras_adivinadas[oponente])}\n".encode())
-        conexion.sendall("Ingresa una letra o arriesga una palabra completa: ".encode())
+        if turno_actual == direccion:
+            conexion.sendall(f"Es tu turno. Tu palabra para adivinar: {' '.join(palabras_adivinadas[oponente])}\n".encode())
+            conexion.sendall("Ingresa una letra o una palabra completa: ".encode())
 
-        entrada = conexion.recv(1024).decode().strip().lower()
+            entrada = conexion.recv(1024).decode().strip().lower()
 
-        if len(entrada) > 1:
-            historial[direccion]["palabras"].append(entrada)
-        else:
-            if entrada in palabras_originales[oponente]:  # Letra correcta
-                historial[direccion]["letras_correctas"].append(entrada)
-            else:  # Letra incorrecta
-                historial[direccion]["letras_incorrectas"].append(entrada)
-
-        if len(entrada) > 1:  
-            if entrada == palabras_originales[oponente]:
-                palabras_adivinadas[oponente] = list(palabras_originales[oponente])  # Convertir la palabra completa en lista
-                conexion.sendall("¡Adivinaste la palabra completa! ¡Ganaste!\n".encode())
-                jugadores[oponente].sendall("El otro jugador adivinó tu palabra. Has perdido.\n".encode())
-                break
-            else:
-                intentos_palabra -= 1
-                conexion.sendall(f"Palabra incorrecta. Intentos restantes para adivinar palabra completa: {intentos_palabra}\n".encode())
-                if intentos_palabra <= 0:
-                    conexion.sendall("Has perdido. Demasiados intentos fallidos para palabras completas.\n".encode())
-                    jugadores[oponente].sendall("¡Ganaste! El otro jugador falló demasiadas veces con palabras completas.\n".encode())
+            if len(entrada) > 1:  # Intento de palabra completa
+                if entrada == palabras_originales[oponente]:
+                    palabras_adivinadas[oponente] = list(palabras_originales[oponente])
+                    conexion.sendall("¡Adivinaste la palabra completa! ¡Ganaste!\n".encode())
+                    jugadores[oponente].sendall("El otro jugador adivinó tu palabra. Has perdido.\n".encode())
                     break
-        else:  
-            palabra_oponente = palabras_originales[oponente]
-            adivinada_actualizada = palabras_adivinadas[oponente]
-            error_cometido = True
+                else:
+                    conexion.sendall("Palabra incorrecta. Turno perdido.\n".encode())
+            else:  # Intento de una letra
+                if entrada in palabras_originales[oponente]:
+                    for i, caracter in enumerate(palabras_originales[oponente]):
+                        if caracter == entrada:
+                            palabras_adivinadas[oponente][i] = entrada
+                    conexion.sendall("¡Letra correcta!\n".encode())
+                else:
+                    conexion.sendall("Letra incorrecta. Turno perdido.\n".encode())
 
-            for i, caracter in enumerate(palabra_oponente):
-                if caracter == entrada:
-                    adivinada_actualizada[i] = entrada
-                    error_cometido = False
-
-            palabras_adivinadas[oponente] = adivinada_actualizada
-
-            if error_cometido:
-                errores += 1
-                conexion.sendall(f"Letra incorrecta. Errores: {errores}/{ERRORES_MAXIMOS}\n".encode())
-            else:
-                conexion.sendall(f"¡Letra correcta! {' '.join(palabras_adivinadas[oponente])}\n".encode())
-
-            if ''.join(palabras_adivinadas[oponente]) == palabra_oponente:
+            # Verificar si el juego terminó
+            if ''.join(palabras_adivinadas[oponente]) == palabras_originales[oponente]:
                 conexion.sendall("¡Felicidades, adivinaste la palabra y ganaste el juego!\n".encode())
                 jugadores[oponente].sendall("El otro jugador adivinó tu palabra. Has perdido.\n".encode())
                 break
-            elif errores >= ERRORES_MAXIMOS:
-                conexion.sendall("Has perdido. Demasiados errores.\n".encode())
-                jugadores[oponente].sendall("¡Ganaste! El otro jugador cometió demasiados errores.\n".encode())
-                break
 
-        conexion.sendall(f"Historial de letras correctas: {', '.join(historial[direccion]['letras_correctas'])}\n".encode())
-        conexion.sendall(f"Historial de letras incorrectas: {', '.join(historial[direccion]['letras_incorrectas'])}\n".encode())
-        conexion.sendall(f"Historial de palabras: {', '.join(historial[direccion]['palabras'])}\n".encode())
+            # Cambiar de turno
+            turno_actual = oponente
+        else:
+            conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
+            time.sleep(1)  # Esperar para evitar mensajes repetitivos
 
     conexion.sendall("El juego ha terminado. Gracias por jugar.\n".encode())
 
@@ -114,4 +90,6 @@ print(f"Servidor escuchando en {HOST}:{PUERTO}")
 while len(jugadores) < 2:
     conexion, direccion = servidor.accept()
     jugadores[direccion] = conexion
+    if len(jugadores) == 1:
+        turno_actual = direccion  # El primer jugador comienza
     threading.Thread(target=manejar_jugador, args=(conexion, direccion)).start()
