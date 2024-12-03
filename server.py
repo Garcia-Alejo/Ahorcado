@@ -64,12 +64,16 @@ def manejar_jugador(conexion, direccion):
                     # Verificar si ya usó 'revelar'
                     if uso_revelar[direccion]:
                         conexion.sendall("Ya has usado tu única oportunidad de revelar una letra.\n".encode())
-                        continue  # No cambiar el turno, seguir esperando la entrada del jugador
+                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
+                        continue  # Saltar el turno
 
                     # Verificar si la palabra a adivinar tiene más de 8 caracteres
                     if len(palabras_originales[oponente]) <= 8:
                         conexion.sendall("No puedes usar 'revelar' porque la palabra tiene 8 o menos caracteres.\n".encode())
-                        continue  # No cambiar el turno, seguir esperando la entrada del jugador
+                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
+                        continue  # Saltar el turno
 
                     try:
                         posicion = int(entrada.split()[1]) - 1
@@ -79,10 +83,14 @@ def manejar_jugador(conexion, direccion):
                             uso_revelar[direccion] = True  # Marcar que ya usó 'revelar'
                         else:
                             conexion.sendall("Posición inválida o ya revelada.\n".encode())
-                            continue  # No cambiar el turno, seguir esperando la entrada del jugador
+                            turno_actual = oponente  # Cambiar el turno inmediatamente
+                            conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
+                            continue  # Saltar el turno
                     except (ValueError, IndexError):
                         conexion.sendall("Comando 'revelar' inválido. Usa 'revelar X', donde X es un número válido.\n".encode())
-                        continue  # No cambiar el turno, seguir esperando la entrada del jugador
+                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())            
+                        continue  # Saltar el turno
                 elif len(entrada) > 1:
                     if entrada == palabras_originales[oponente]:
                         conexion.sendall("¡Felicidades, adivinaste la palabra completa y ganaste el juego!\n".encode())
