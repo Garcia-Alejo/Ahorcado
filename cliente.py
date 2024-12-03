@@ -1,25 +1,33 @@
 import socket
 
-# Configuración del cliente
-HOST = '127.0.0.1'  # Localhost
+HOST = '127.0.0.1'
 PUERTO = 12345
 
-cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-cliente.connect((HOST, PUERTO))
+def cliente_ahorcado():
+    try:
+        cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        cliente.connect((HOST, PUERTO))
+        print("Conectado al servidor.")
 
-while True:
-    # Recibir mensajes del servidor
-    mensaje = cliente.recv(1024).decode()
-    print(mensaje)
+        while True:
+            mensaje_servidor = cliente.recv(1024).decode()
+            if not mensaje_servidor:
+                print("Conexión cerrada por el servidor.")
+                break
+            print(f"Servidor: {mensaje_servidor}")
 
-    # Verificar si se necesita entrada del usuario
-    if "Ingresa una letra" in mensaje or "envía tu palabra" in mensaje:
-        respuesta = input("> ")
-        cliente.sendall(respuesta.encode())
+            if "envía tu palabra" in mensaje_servidor.lower():
+                palabra = input("Introduce tu palabra para el juego: ").strip()
+                cliente.sendall(palabra.encode())
+            elif "ingresa una letra" in mensaje_servidor.lower() or "revelar" in mensaje_servidor.lower():
+                entrada = input("Introduce una letra, palabra o usa 'revelar X': ").strip()
+                cliente.sendall(entrada.encode())
 
-    # Terminar la conexión si el juego ha terminado
-    if "El juego ha terminado" in mensaje:
-        print("Desconectando...")
-        break
+    except ConnectionError as e:
+        print(f"Error de conexión: {e}")
+    finally:
+        cliente.close()
+        print("Conexión cerrada.")
 
-cliente.close()
+if __name__ == "__main__":
+    cliente_ahorcado()
