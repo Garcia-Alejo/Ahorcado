@@ -29,7 +29,7 @@ def manejar_jugador(conexion, direccion):
         conexion.sendall("Ambos jugadores conectados. Por favor, envía tu palabra.\n".encode())
         palabra = conexion.recv(1024).decode().strip().lower()
 
-        # Validar la palabra
+       
         if not palabra.isalpha():
             conexion.sendall("La palabra debe contener solo letras. Conexión cerrada.\n".encode())
             conexion.close()
@@ -40,7 +40,6 @@ def manejar_jugador(conexion, direccion):
         historial[direccion] = {"letras_correctas": [], "letras_incorrectas": [], "palabras": []}
         uso_revelar[direccion] = False  # Inicializar el uso del comando 'revelar' como falso
 
-        # Esperar hasta que ambos jugadores envíen sus palabras
         while len(palabras_originales) < 2:
             pass
 
@@ -61,36 +60,34 @@ def manejar_jugador(conexion, direccion):
                 entrada = conexion.recv(1024).decode().strip().lower()
 
                 if entrada.startswith("revelar"):
-                    # Verificar si ya usó 'revelar'
                     if uso_revelar[direccion]:
                         conexion.sendall("Ya has usado tu única oportunidad de revelar una letra.\n".encode())
-                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        turno_actual = oponente  
                         conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
-                        continue  # Saltar el turno
+                        continue  
 
-                    # Verificar si la palabra a adivinar tiene más de 8 caracteres
                     if len(palabras_originales[oponente]) <= 8:
                         conexion.sendall("No puedes usar 'revelar' porque la palabra tiene 8 o menos caracteres.\n".encode())
-                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        turno_actual = oponente  
                         conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
-                        continue  # Saltar el turno
+                        continue 
 
                     try:
                         posicion = int(entrada.split()[1]) - 1
                         if 0 <= posicion < len(palabras_originales[oponente]) and palabras_adivinadas[oponente][posicion] == "_":
                             palabras_adivinadas[oponente][posicion] = palabras_originales[oponente][posicion]
                             conexion.sendall(f"Letra revelada: {palabras_originales[oponente][posicion]} en la posición {posicion + 1}.\n".encode())
-                            uso_revelar[direccion] = True  # Marcar que ya usó 'revelar'
+                            uso_revelar[direccion] = True  
                         else:
                             conexion.sendall("Posición inválida o ya revelada.\n".encode())
-                            turno_actual = oponente  # Cambiar el turno inmediatamente
+                            turno_actual = oponente  
                             conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
-                            continue  # Saltar el turno
+                            continue 
                     except (ValueError, IndexError):
                         conexion.sendall("Comando 'revelar' inválido. Usa 'revelar X', donde X es un número válido.\n".encode())
-                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        turno_actual = oponente  
                         conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())            
-                        continue  # Saltar el turno
+                        continue  
                 elif len(entrada) > 1:
                     if entrada == palabras_originales[oponente]:
                         conexion.sendall("¡Felicidades, adivinaste la palabra completa y ganaste el juego!\n".encode())
@@ -99,7 +96,7 @@ def manejar_jugador(conexion, direccion):
                         break
                     else:
                         conexion.sendall("Palabra incorrecta. Turno perdido.\n".encode())
-                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        turno_actual = oponente  
                 else:
                     if entrada in palabras_originales[oponente]:
                         historial[direccion]["letras_correctas"].append(entrada)
@@ -110,16 +107,15 @@ def manejar_jugador(conexion, direccion):
                     else:
                         historial[direccion]["letras_incorrectas"].append(entrada)
                         conexion.sendall("Letra incorrecta. Turno perdido.\n".encode())
-                        turno_actual = oponente  # Cambiar el turno inmediatamente
+                        turno_actual = oponente  
 
-                # Comprobar si se adivinó toda la palabra
                 if ''.join(palabras_adivinadas[oponente]) == palabras_originales[oponente]:
                     conexion.sendall("¡Felicidades, adivinaste la palabra y ganaste el juego!\n".encode())
                     jugadores[oponente].sendall("El otro jugador adivinó tu palabra. Has perdido.\n".encode())
                     juego_activo = False
                     break
 
-                turno_actual = oponente  # Cambiar el turno inmediatamente
+                turno_actual = oponente  
             else:
                 if not avisado_turno.get(direccion, False):
                     conexion.sendall("Es el turno del otro jugador. Espera...\n".encode())
@@ -133,7 +129,6 @@ def manejar_jugador(conexion, direccion):
         print(f"Conexión con {direccion} cerrada.")
 
 
-# Configuración inicial del servidor
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 servidor.bind((HOST, PUERTO))
 servidor.listen(2)
