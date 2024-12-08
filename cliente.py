@@ -19,8 +19,8 @@ def cliente_ahorcado():
             if "envía tu palabra" in mensaje_servidor.lower():
                 palabra = input("Introduce tu palabra para el juego: ").strip()
                 cliente.sendall(palabra.encode())
-            elif "ingresa una letra" in mensaje_servidor.lower() or "revelar" in mensaje_servidor.lower():
-                entrada = input("Introduce una letra, palabra o usa 'revelar X': ").strip()
+            elif "ingresa una letra" in mensaje_servidor.lower() :
+                entrada = input("").strip()
                 cliente.sendall(entrada.encode())
 
     except ConnectionError as e:
